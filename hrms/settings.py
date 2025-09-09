@@ -15,6 +15,11 @@ DEBUG = config("DEBUG")
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="*", cast=Csv())
 
 # ----------------------------
+# CUSTOM USER
+# ----------------------------
+AUTH_USER_MODEL = "users.User"
+
+# ----------------------------
 # APPLICATIONS
 # ----------------------------
 INSTALLED_APPS = [
@@ -24,6 +29,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    
+    # apps
+    'users'
 ]
 
 # ----------------------------
