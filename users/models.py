@@ -1,41 +1,44 @@
 import uuid
+from datetime import timedelta
 from django.db import models
-from core.models import BaseModel
-from django.db.models import CASCADE
-from django.utils.translation import gettext_lazy as _
-from .managers import UserManager, ActiveUserManager
+from django.utils import timezone
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
-from core.constants import (
-    ROLE_CHOICES, 
-    STATUS_CHOICES, 
-    GENDER_CHOICES, 
-    BLOOD_GROUP_CHOICES,
-    ADDRESS_TYPE_CHOICES
-)
+from .managers import UserManager, ActiveUserManager
+from core.constants import ROLE_CHOICES, STATUS_CHOICES, GENDER_CHOICES, BLOOD_GROUP_CHOICES
+from django.utils.crypto import get_random_string
 
-# ----------------------------
-# User Model
-# ----------------------------
-class User(AbstractBaseUser, PermissionsMixin, BaseModel):
+class User(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    email = models.EmailField(_("email address"), unique=True)
-    
+    email = models.EmailField(unique=True)
+
     em_id = models.CharField(max_length=64, unique=True, blank=True, null=True)
     em_role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="EMPLOYEE")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="ACTIVE")
     em_gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default="MALE")
     em_blood_group = models.CharField(max_length=10, choices=BLOOD_GROUP_CHOICES, default="O+")
-    des_id = models.ForeignKey('Designation', on_delete=models.SET_NULL, null=True, blank=True)
-    dep_id = models.ForeignKey('Department', on_delete=models.SET_NULL, null=True, blank=True)
+
+    designation = models.ForeignKey(
+        "designation.Designation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="employees"
+    )
+
     em_phone = models.CharField(max_length=64, blank=True, null=True)
     em_birthday = models.DateField(blank=True, null=True)
     em_joining_date = models.DateField(blank=True, null=True)
     em_contract_end = models.DateField(blank=True, null=True)
     em_image = models.ImageField(upload_to="images/employee/profile/", blank=True, null=True)
     em_nid = models.CharField(max_length=64, blank=True, null=True)
-    
+
     is_verified = models.BooleanField(default=False)
     otp = models.CharField(max_length=6, blank=True, null=True)
+    otp_created_at = models.DateTimeField(blank=True, null=True)
+    is_reset_otp = models.BooleanField(default=False)
+
+    reset_password_token = models.UUIDField(blank=True, null=True)
+    reset_password_token_created_at = models.DateTimeField(blank=True, null=True)
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -48,29 +51,55 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     objects = UserManager()
     active_objects = ActiveUserManager()
 
+    def save(self, *args, **kwargs):
+        if not self.em_id:
+            self.em_id = f"EMP-{get_random_string(8).upper()}"
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.email
-    
-    def delete(self, using=None, keep_parents=False):
-        self.is_deleted = True
-        self.save()
 
-    def restore(self):
-        self.is_deleted = False
-        self.save()
+    @property
+    def department(self):
+        return self.designation.department if self.designation else None
 
-# ----------------------------
-# Department & Designation
-# ----------------------------
-class Department(models.Model):
-    dep_name = models.CharField(max_length=64)
+    # ----------------------------
+    # OTP Methods
+    # ----------------------------
+    def set_otp(self, otp, reset=False):
+        self.otp = otp
+        self.is_reset_otp = reset
+        self.otp_created_at = timezone.now()
+        self.save(update_fields=["otp", "otp_created_at", "is_reset_otp"])
 
-    def __str__(self):
-        return self.dep_name
+    def verify_otp(self, otp, reset=False, expiry_minutes=10):
+        if self.otp != otp or self.is_reset_otp != reset:
+            return False
+        if self.otp_created_at and timezone.now() > self.otp_created_at + timedelta(minutes=expiry_minutes):
+            return False
+        self.otp = None
+        self.otp_created_at = None
+        self.is_reset_otp = False
+        self.save(update_fields=["otp", "otp_created_at", "is_reset_otp"])
+        return True
 
+    # ----------------------------
+    # Password Reset Token Methods
+    # ----------------------------
+    def set_reset_password_token(self):
+        self.reset_password_token = uuid.uuid4()
+        self.reset_password_token_created_at = timezone.now()
+        self.save(update_fields=["reset_password_token", "reset_password_token_created_at"])
+        return self.reset_password_token
 
-class Designation(models.Model):
-    des_name = models.CharField(max_length=64)
+    def verify_reset_password_token(self, token, expiry_minutes=30):
+        if str(self.reset_password_token) != str(token):
+            return False
+        if self.reset_password_token_created_at and timezone.now() > self.reset_password_token_created_at + timedelta(minutes=expiry_minutes):
+            return False
+        return True
 
-    def __str__(self):
-        return self.des_name
+    def clear_reset_password_token(self):
+        self.reset_password_token = None
+        self.reset_password_token_created_at = None
+        self.save(update_fields=["reset_password_token", "reset_password_token_created_at"])

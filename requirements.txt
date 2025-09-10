@@ -1,5 +1,7 @@
 django==5.2.6
 Pillow>=10.0.0
+markdown
+django-filter
 djangorestframework
 python-decouple
 psycopg2-binary

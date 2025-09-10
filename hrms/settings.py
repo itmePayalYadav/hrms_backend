@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import timedelta
 from decouple import config, Csv
 import dj_database_url
 
@@ -24,9 +25,18 @@ ALLOWED_HOSTS = config(
 AUTH_USER_MODEL = "users.User"
 
 # ----------------------------
+# AUTHENTICATION BACKENDS
+# ----------------------------
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+# ----------------------------
 # CSRF TRUSTED ORIGINS
 # ----------------------------
 CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
     "https://human-resource-management.up.railway.app",
 ]
 
@@ -41,8 +51,14 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
-    # apps
-    'users'
+    # Third-party
+    'rest_framework',
+    "rest_framework_simplejwt.token_blacklist",
+    
+    # Local apps
+    'users',
+    'department',
+    'designation'
 ]
 
 # ----------------------------
@@ -58,6 +74,17 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# ----------------------------
+# EMAIL
+# ----------------------------
+EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = config("EMAIL_HOST", default="smtp.gmail.com")
+EMAIL_PORT = config("EMAIL_PORT", cast=int, default=587)
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", cast=bool, default=True)
+EMAIL_HOST_USER = config("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default=EMAIL_HOST_USER)
 
 # ----------------------------
 # URLS & WSGI
@@ -123,6 +150,46 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# ----------------------------
+# REST FRAMEWORK & JWT
+# ----------------------------
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+    
+    "DEFAULT_THROTTLE_CLASSES": (
+        "users.throttles.OTPThrottle", 
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "otp": "5/hour",
+        "login": "10/hour",
+        "general": "20/hour",
+    },
+    "GENERAL_THROTTLE_SAFE_RATE": "100/hour",
+    "GENERAL_THROTTLE_UNSAFE_RATE": "10/hour",
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=config("ACCESS_TOKEN_EXPIRY", cast=int, default=1)),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=config("REFRESH_TOKEN_EXPIRY", cast=int, default=7)),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+}
+
+# ----------------------------
+# CACHING (Redis for sessions/lockouts)
+# ----------------------------
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": config("REDIS_URL", default="redis://127.0.0.1:6379/1"),
+    }
+}
 
 # ----------------------------
 # INTERNATIONALIZATION
