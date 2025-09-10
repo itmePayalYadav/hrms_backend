@@ -2,12 +2,14 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 @api_view(['GET'])
 def health_check(request):
     """
     Health check endpoint for monitoring service status.
     """
+    permission_classes = [AllowAny]
     response_data = {
         "status": "success",
         "message": "Service is running",
