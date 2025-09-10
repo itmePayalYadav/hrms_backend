@@ -4,7 +4,7 @@ from django.contrib.auth.hashers import check_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import User
-from .utils import generate_otp, send_otp_email
+from core.utils import generate_otp, send_otp_email
 
 # ----------------------------
 # Register Serializer

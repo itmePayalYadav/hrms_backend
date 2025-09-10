@@ -6,7 +6,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 import logging
 
-from .utils import api_response
+from core.utils import api_response
+
 from .throttles import OTPThrottle, LoginThrottle, GeneralThrottle
 from .serializers import (
     RegisterSerializer, VerifyOTPSerializer, ResendOTPSerializer,
@@ -29,15 +30,36 @@ class RegisterView(generics.CreateAPIView):
     throttle_classes = [GeneralThrottle]
 
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        logger.info(f"User {user.email} registered successfully")
-        return api_response(
-            message="User created successfully. OTP sent to your email for verification",
-            data={"email": user.email},
-            status_code=status.HTTP_201_CREATED
-        )
+        start_time = time.time()
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            user = serializer.save()
+            
+            if time.time() - start_time > 25:  # 25 seconds threshold
+                logger.warning(f"Register operation taking too long for {user.email}")
+            
+            logger.info(f"User {user.email} registered successfully")
+            return api_response(
+                message="User created successfully. OTP sent to your email for verification",
+                data={"email": user.email},
+                status_code=status.HTTP_201_CREATED
+            )
+            
+        except DatabaseError as e:
+            logger.error(f"Database error during registration: {str(e)}")
+            return api_response(
+                status_str="error",
+                message="Database operation failed",
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error during registration: {str(e)}")
+            return api_response(
+                status_str="error",
+                message="Internal server error",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # ----------------------------
 # Verify OTP
