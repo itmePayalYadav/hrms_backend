@@ -1,7 +1,9 @@
+from .models import User
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, Department, Designation
+from designation.models import Designation
+from department.models import Department
 from django.utils.translation import gettext_lazy as _
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 class UserAdmin(BaseUserAdmin):
     list_display = ("email", "em_role", "status", "is_staff", "is_superuser", "is_active")
