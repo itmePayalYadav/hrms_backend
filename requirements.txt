@@ -9,3 +9,4 @@ dj-database-url
 whitenoise
 djangorestframework-simplejwt
 gunicorn==21.2.0
+django-redis==5.4.0
