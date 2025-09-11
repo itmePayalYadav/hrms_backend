@@ -30,8 +30,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     em_id = models.CharField(max_length=64, unique=True, blank=True, null=True)
     em_role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="EMPLOYEE")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="ACTIVE")
-    em_gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True)
-    em_blood_group = models.CharField(max_length=10, choices=BLOOD_GROUP_CHOICES, blank=True, null=True)
+    em_gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default="FEMALE")
+    em_blood_group = models.CharField(max_length=10, choices=BLOOD_GROUP_CHOICES, default="B+")
 
     designation = models.ForeignKey(
         "designation.Designation",
