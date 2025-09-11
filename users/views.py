@@ -142,9 +142,12 @@ class ForgotPasswordView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = ForgotPasswordOTPSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        logger.info(f"Password reset OTP sent to {user.email}")
-        return api_response(message="OTP sent to email for password reset")
+        data = serializer.save()
+        logger.info(f"Password reset OTP sent to {data['email']}")
+        return api_response(
+            message="OTP sent to email for password reset",
+            data=data  
+        )
 
 
 # ----------------------------
