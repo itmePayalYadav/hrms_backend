@@ -1,9 +1,9 @@
+from .models import User
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.hashers import check_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import User
 from core.utils import generate_otp, send_otp_email
 
 # ----------------------------
@@ -27,11 +27,20 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         password = validated_data.pop("password")
         validated_data.pop("password_confirm")
-        user = User.objects.create_user(password=password, **validated_data)
+        
         otp = generate_otp()
+        
+        try:
+            send_otp_email(user.email, otp)
+        except Exception as e:
+            raise serializers.ValidationError(
+                {"email": f"Failed to send OTP: {str(e)}"}
+            )
+            
+        user = User.objects.create_user(password=password, **validated_data)
         user.set_otp(otp)
         user.is_verified = False
-        send_otp_email(user.email, otp)
+        user.save(update_fields=["otp", "is_verified"])
         return user
 
 # ----------------------------

@@ -15,7 +15,7 @@ class HealthCheckAPIView(APIView):
         response = {
             "service": "HRMS API",
             "uptime": timezone.now().isoformat(),
-            "endpoint": "health-check"
+            "endpoint": "https://human-resource-management.up.railway.app/health"
         }
         return api_response(
             message="Service is running",
