@@ -202,22 +202,9 @@ MEDIA_ROOT = BASE_DIR / "media"
 # ----------------------------
 # EMAIL SETTINGS (SendGrid)
 # ----------------------------
-EMAIL_BACKEND = config("EMAIL_BACKEND", default="core.email_backends.SendGridBackend")
+EMAIL_BACKEND = config("EMAIL_BACKEND", default="core.emails.SendGridBackend")
 SENDGRID_API_KEY = config("SENDGRID_API_KEY")
 EMAIL_FROM = config("EMAIL_FROM")
-
-# ----------------------------
-# SECURITY SETTINGS (Production)
-# ----------------------------
-SECURE_SSL_REDIRECT = not DEBUG
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
-SECURE_HSTS_SECONDS = 31536000
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
-X_FRAME_OPTIONS = "DENY"
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
 
 # ----------------------------
 # DEFAULT PK FIELD
