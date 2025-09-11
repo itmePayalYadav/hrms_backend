@@ -27,7 +27,7 @@ class RegisterView(generics.CreateAPIView):
     """
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
-    # throttle_classes = [GeneralThrottle]
+    throttle_classes = [GeneralThrottle]
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
