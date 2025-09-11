@@ -1,9 +1,12 @@
 import random
+import logging
 from django.conf import settings
 from django.core.mail import send_mail
 from rest_framework.response import Response
 from rest_framework import status as drf_status
 from typing import Any, Optional, Dict
+
+logger = logging.getLogger(__name__)
 
 # ----------------------------
 # OTP Utility
@@ -21,13 +24,22 @@ def generate_otp(length: int = 6) -> str:
 
 
 def send_otp_email(to_email: str, otp: str, validity_minutes: int = 10) -> None:
-    """
-    Send OTP to the user's email.
-    """
+    from django.core.mail import send_mail
+    from django.conf import settings
+    from smtplib import SMTPException
+
     subject = "Your HRMS OTP Verification Code"
     message = f"Your OTP code is: {otp}. It is valid for {validity_minutes} minutes."
-    from_email = settings.EMAIL_HOST_USER
-    send_mail(subject, message, from_email, [to_email], fail_silently=False)
+    from_email = getattr(settings, "EMAIL_HOST_USER", None)
+
+    if not from_email:
+        raise ValueError("EMAIL_HOST_USER is not configured in settings.")
+
+    try:
+        send_mail(subject, message, from_email, [to_email], fail_silently=False)
+    except SMTPException as e:
+        logger.error(f"Failed to send OTP to {to_email}: {str(e)}")
+        raise serializers.ValidationError({"email": "Failed to send OTP email. Please try again later."})
 
 
 # ----------------------------
