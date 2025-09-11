@@ -166,11 +166,16 @@ REST_FRAMEWORK = {
         "users.throttles.OTPThrottle", 
     ),
     "DEFAULT_THROTTLE_RATES": {
-        "otp": "5/hour",
-        "login": "10/hour",
-        "general": "30/hour",
+        "otp": "20/hour",      
+        "login": "30/hour",
+        "general": "100/hour",
     },
 }
+
+OTP_THROTTLE_RATE = config("OTP_THROTTLE_RATE", default="20/hour")
+LOGIN_THROTTLE_RATE = config("LOGIN_THROTTLE_RATE", default="30/hour")
+GENERAL_THROTTLE_SAFE_RATE = config("GENERAL_THROTTLE_SAFE_RATE", default="200/hour")
+GENERAL_THROTTLE_UNSAFE_RATE = config("GENERAL_THROTTLE_UNSAFE_RATE", default="50/hour")
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=config("ACCESS_TOKEN_EXPIRY", cast=int, default=1)),

@@ -1,48 +1,38 @@
 from django.conf import settings
-from rest_framework.throttling import UserRateThrottle
+from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
+from rest_framework.permissions import SAFE_METHODS
 
 class OTPThrottle(UserRateThrottle):
     """
-    Throttle class for OTP requests.
-
-    Limits OTP generation per user to prevent abuse.
-    Default rate: 5 OTP requests per hour.
+    Throttle OTP requests to prevent abuse.
+    Default: 20 OTP requests per hour per user.
     """
     scope = "otp"
 
     def get_rate(self):
-        return getattr(settings, "OTP_THROTTLE_RATE", "5/hour")
+        return getattr(settings, "OTP_THROTTLE_RATE", "20/hour")
 
 
 class LoginThrottle(UserRateThrottle):
     """
-    Throttle class for login requests.
-
-    Limits login attempts per user to prevent brute-force attacks.
-    Default rate: 10 login requests per hour.
+    Throttle login attempts to prevent brute-force attacks.
+    Default: 30 login requests per hour per user.
     """
     scope = "login"
 
     def get_rate(self):
-        return getattr(settings, "LOGIN_THROTTLE_RATE", "10/hour")
+        return getattr(settings, "LOGIN_THROTTLE_RATE", "30/hour")
 
 
 class GeneralThrottle(UserRateThrottle):
     """
-    General-purpose throttle for most API endpoints.
-
-    Provides different rates for SAFE_METHODS (GET, HEAD, OPTIONS)
-    and unsafe methods (POST, PUT, PATCH, DELETE).
+    General-purpose throttle for other API endpoints.
+    Provides separate limits for safe and unsafe HTTP methods.
     """
     scope = "general"
 
     def get_rate(self):
-        """
-        Determine the rate limit based on request method.
-        Falls back to settings if defined, otherwise uses defaults.
-        """
         request = getattr(self, 'request', None)
         if request and request.method in SAFE_METHODS:
-            return getattr(settings, "GENERAL_THROTTLE_SAFE_RATE", "100/hour")
-        return getattr(settings, "GENERAL_THROTTLE_UNSAFE_RATE", "10/hour")
-
+            return getattr(settings, "GENERAL_THROTTLE_SAFE_RATE", "200/hour")
+        return getattr(settings, "GENERAL_THROTTLE_UNSAFE_RATE", "50/hour")
