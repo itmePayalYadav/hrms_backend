@@ -166,7 +166,7 @@ class ForgotPasswordOTPSerializer(serializers.Serializer):
 
     def save(self):
         otp = generate_otp()
-        self.user.set_reset_password_token()
+        token = self.user.set_reset_password_token()  # store token
         self.user.set_otp(otp, reset=True)
         try:
             send_otp_email(self.user.email, otp, validity_minutes=10)
@@ -174,7 +174,11 @@ class ForgotPasswordOTPSerializer(serializers.Serializer):
         except Exception as e:
             self.user.clear_reset_password_token()
             raise serializers.ValidationError({"email": f"Failed to send OTP: {str(e)}"})
-        return self.user
+        return {
+            "email": self.user.email,
+            "otp": otp,
+            "token": token
+        }
 
 
 # ----------------------------
