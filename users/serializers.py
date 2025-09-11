@@ -1,5 +1,4 @@
 from .models import User
-from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.hashers import check_password
 from rest_framework import serializers
@@ -10,8 +9,12 @@ from core.utils import generate_otp, send_otp_email
 # Register Serializer
 # ----------------------------
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, validators=[validate_password], style={'input_type': 'password'})
-    password_confirm = serializers.CharField(write_only=True, style={'input_type': 'password'})
+    password = serializers.CharField(
+        write_only=True, validators=[validate_password], style={'input_type': 'password'}
+    )
+    password_confirm = serializers.CharField(
+        write_only=True, style={'input_type': 'password'}
+    )
 
     class Meta:
         model = User
@@ -29,7 +32,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data.pop("password_confirm")
         
         otp = generate_otp()
-        
         try:
             send_otp_email(validated_data["email"], otp, validity_minutes=10)
         except Exception as e:
@@ -85,7 +87,12 @@ class ResendOTPSerializer(serializers.Serializer):
         user = User.objects.get(email=self.validated_data["email"])
         otp = generate_otp()
         user.set_otp(otp)
-        send_otp_email(user.email, otp)
+        try:
+            send_otp_email(user.email, otp)
+        except Exception as e:
+            raise serializers.ValidationError(
+                {"email": f"Failed to send OTP: {str(e)}"}
+            )
         return user
 
 # ----------------------------
@@ -152,7 +159,12 @@ class ForgotPasswordOTPSerializer(serializers.Serializer):
         otp = generate_otp()
         token = self.user.set_reset_password_token()
         self.user.set_otp(otp)
-        send_otp_email(self.user.email, otp)
+        try:
+            send_otp_email(self.user.email, otp)
+        except Exception as e:
+            raise serializers.ValidationError(
+                {"email": f"Failed to send OTP: {str(e)}"}
+            )
         return {"user": self.user, "otp": otp, "reset_token": token}
 
 # ----------------------------

@@ -20,7 +20,7 @@ ALLOWED_HOSTS = config(
 )
 
 # ----------------------------
-# CUSTOM USER
+# CUSTOM USER MODEL
 # ----------------------------
 AUTH_USER_MODEL = "users.User"
 
@@ -34,31 +34,32 @@ AUTHENTICATION_BACKENDS = [
 # ----------------------------
 # CSRF TRUSTED ORIGINS
 # ----------------------------
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "https://human-resource-management.up.railway.app",
-]
+CSRF_TRUSTED_ORIGINS = config(
+    "CSRF_TRUSTED_ORIGINS",
+    default="http://localhost:8000,http://127.0.0.1:8000,https://human-resource-management.up.railway.app",
+    cast=Csv()
+)
 
 # ----------------------------
-# APPLICATIONS
+# INSTALLED APPS
 # ----------------------------
 INSTALLED_APPS = [
+    # Django Apps
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Third-party
     'rest_framework',
-    "rest_framework_simplejwt.token_blacklist",
+    'rest_framework_simplejwt.token_blacklist',
     
     # Local apps
     'users',
     'department',
-    'designation'
+    'designation',
 ]
 
 # ----------------------------
@@ -76,18 +77,7 @@ MIDDLEWARE = [
 ]
 
 # ----------------------------
-# EMAIL
-# ----------------------------
-EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")
-EMAIL_HOST = config("EMAIL_HOST", cast=str, default="smtp.gmail.com")
-EMAIL_PORT = config("EMAIL_PORT", cast=str, default="587") 
-EMAIL_HOST_USER = config("EMAIL_HOST_USER", cast=str, default=None)
-EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", cast=str, default=None)
-EMAIL_USE_TLS = config("EMAIL_USE_TLS", cast=bool, default=True)
-EMAIL_USE_SSL = config("EMAIL_USE_SSL", cast=bool,  default=False)
-
-# ----------------------------
-# URLS & WSGI
+# ROOT URLS & WSGI
 # ----------------------------
 ROOT_URLCONF = "hrms.urls"
 WSGI_APPLICATION = "hrms.wsgi.application"
@@ -98,7 +88,7 @@ WSGI_APPLICATION = "hrms.wsgi.application"
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -113,10 +103,10 @@ TEMPLATES = [
 # ----------------------------
 # DATABASE
 # ----------------------------
-CONN_MAX_AGE = config("CONN_MAX_AGE", cast=int, default=30)
 DATABASE_URL = config("DATABASE_URL", default=None)
+CONN_MAX_AGE = config("CONN_MAX_AGE", default=50, cast=int)
 
-if DATABASE_URL is not None:
+if DATABASE_URL:
     DATABASES = {
         "default": dj_database_url.parse(
             DATABASE_URL,
@@ -133,21 +123,13 @@ else:
     }
 
 # ----------------------------
-# PASSWORD VALIDATORS
+# PASSWORD VALIDATION
 # ----------------------------
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 8}},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
 # ----------------------------
@@ -157,55 +139,45 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
-    
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
-    
     "DEFAULT_THROTTLE_CLASSES": (
-        "users.throttles.OTPThrottle", 
+        "users.throttles.OTPThrottle",
+        "users.throttles.LoginThrottle",
     ),
     "DEFAULT_THROTTLE_RATES": {
-        "otp": "20/hour",      
-        "login": "30/hour",
-        "general": "100/hour",
+        "otp": config("OTP_THROTTLE_RATE", default="20/hour"),
+        "login": config("LOGIN_THROTTLE_RATE", default="30/hour"),
+        "general": config("GENERAL_THROTTLE_SAFE_RATE", default="200/hour"),
     },
 }
 
-OTP_THROTTLE_RATE = config("OTP_THROTTLE_RATE", default="20/hour")
-LOGIN_THROTTLE_RATE = config("LOGIN_THROTTLE_RATE", default="30/hour")
-GENERAL_THROTTLE_SAFE_RATE = config("GENERAL_THROTTLE_SAFE_RATE", default="200/hour")
-GENERAL_THROTTLE_UNSAFE_RATE = config("GENERAL_THROTTLE_UNSAFE_RATE", default="50/hour")
-
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=config("ACCESS_TOKEN_EXPIRY", cast=int, default=1)),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=config("REFRESH_TOKEN_EXPIRY", cast=int, default=7)),
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=config("ACCESS_TOKEN_EXPIRY", default=1, cast=int)),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=config("REFRESH_TOKEN_EXPIRY", default=7, cast=int)),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
 }
 
 # ----------------------------
-# CACHING (Redis for sessions/lockouts)
+# CACHES & SESSIONS (Redis)
 # ----------------------------
+REDIS_URL = config("REDIS_URL", default="redis://127.0.0.1:6379/1")
+
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": config(
-            "REDIS_URL",
-            default="redis://127.0.0.1:6379/1"
-        ),
+        "LOCATION": REDIS_URL,
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "CONNECTION_POOL_KWARGS": {"ssl_cert_reqs": None},
             "IGNORE_EXCEPTIONS": True,
             "decode_responses": True,
-        }
+        },
     }
 }
 
-# ----------------------------
-# SESSIONS (store in Redis instead of DB)
-# ----------------------------
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 
@@ -213,23 +185,56 @@ SESSION_CACHE_ALIAS = "default"
 # INTERNATIONALIZATION
 # ----------------------------
 LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
-
+TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
-
 USE_TZ = True
 
 # ----------------------------
 # STATIC & MEDIA FILES
 # ----------------------------
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / "staticfiles" 
-
-# WhiteNoise configuration
+STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / "media"
+
+# ----------------------------
+# EMAIL SETTINGS (SendGrid)
+# ----------------------------
+EMAIL_BACKEND = config("EMAIL_BACKEND", default="core.email_backends.SendGridBackend")
+SENDGRID_API_KEY = config("SENDGRID_API_KEY")
+EMAIL_FROM = config("EMAIL_FROM")
+
+# ----------------------------
+# SECURITY SETTINGS (Production)
+# ----------------------------
+SECURE_SSL_REDIRECT = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
 
 # ----------------------------
 # DEFAULT PK FIELD
 # ----------------------------
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ----------------------------
+# LOGGING
+# ----------------------------
+import logging
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "loggers": {
+        "django": {"handlers": ["console"], "level": "INFO"},
+    },
+}

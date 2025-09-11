@@ -7,7 +7,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 import logging
 
 from core.utils import api_response
-
 from .throttles import OTPThrottle, LoginThrottle, GeneralThrottle
 from .serializers import (
     RegisterSerializer, VerifyOTPSerializer, ResendOTPSerializer,
@@ -21,10 +20,6 @@ logger = logging.getLogger(__name__)
 # Register
 # ----------------------------
 class RegisterView(generics.CreateAPIView):
-    """
-    Register a new user and send OTP for email verification.
-    Throttled using GeneralThrottle to prevent abuse.
-    """
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
     throttle_classes = [GeneralThrottle]
@@ -44,10 +39,6 @@ class RegisterView(generics.CreateAPIView):
 # Verify OTP
 # ----------------------------
 class VerifyOTPView(APIView):
-    """
-    Verify OTP sent to user's email.
-    Throttled using OTPThrottle to prevent brute-force attempts.
-    """
     permission_classes = [AllowAny]
     throttle_classes = [OTPThrottle]
 
@@ -57,34 +48,33 @@ class VerifyOTPView(APIView):
         logger.info(f"User {request.data.get('email')} verified OTP successfully")
         return api_response(message="Account verified successfully")
 
-
 # ----------------------------
 # Resend OTP
 # ----------------------------
 class ResendOTPView(APIView):
-    """
-    Resend OTP to user's email.
-    Throttled using OTPThrottle: 5 requests per hour per user.
-    """
     permission_classes = [AllowAny]
     throttle_classes = [OTPThrottle]
 
     def post(self, request, *args, **kwargs):
         serializer = ResendOTPSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        logger.info(f"OTP resent to {request.data.get('email')}")
-        return api_response(message="OTP resent successfully")
-
+        try:
+            serializer.save()
+            logger.info(f"OTP resent to {request.data.get('email')}")
+            return api_response(message="OTP resent successfully")
+        except Exception as e:
+            logger.error(f"Failed to resend OTP to {request.data.get('email')}: {str(e)}")
+            return api_response(
+                status_str="error",
+                message="Failed to resend OTP",
+                errors=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # ----------------------------
 # Login
 # ----------------------------
 class LoginView(TokenObtainPairView):
-    """
-    Obtain JWT access and refresh tokens.
-    Throttled using LoginThrottle to prevent brute-force login attempts.
-    """
     serializer_class = MyTokenObtainPairSerializer
     throttle_classes = [LoginThrottle]
 
@@ -94,15 +84,10 @@ class LoginView(TokenObtainPairView):
             logger.info(f"User {request.data.get('email')} logged in successfully")
         return response
 
-
 # ----------------------------
 # Logout
 # ----------------------------
 class LogoutView(APIView):
-    """
-    Logout user by blacklisting refresh token.
-    Throttled using GeneralThrottle.
-    """
     permission_classes = [IsAuthenticated]
     throttle_classes = [GeneralThrottle]
 
@@ -131,15 +116,10 @@ class LogoutView(APIView):
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
-
 # ----------------------------
 # Change Password
 # ----------------------------
 class ChangePasswordView(generics.UpdateAPIView):
-    """
-    Allow authenticated users to change their password.
-    Throttled using GeneralThrottle.
-    """
     serializer_class = ChangePasswordSerializer
     permission_classes = [IsAuthenticated]
     throttle_classes = [GeneralThrottle]
@@ -154,34 +134,33 @@ class ChangePasswordView(generics.UpdateAPIView):
         logger.info(f"User {request.user.email} changed password successfully")
         return api_response(message="Password changed successfully")
 
-
 # ----------------------------
 # Forgot Password
 # ----------------------------
 class ForgotPasswordView(APIView):
-    """
-    Send OTP for password reset to user's email.
-    Throttled using GeneralThrottle.
-    """
     permission_classes = [AllowAny]
     throttle_classes = [GeneralThrottle]
 
     def post(self, request, *args, **kwargs):
         serializer = ForgotPasswordOTPSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        logger.info(f"Password reset OTP sent to {request.data.get('email')}")
-        return api_response(message="OTP sent to email for password reset")
-
+        try:
+            serializer.save()
+            logger.info(f"Password reset OTP sent to {request.data.get('email')}")
+            return api_response(message="OTP sent to email for password reset")
+        except Exception as e:
+            logger.error(f"Failed to send password reset OTP: {str(e)}")
+            return api_response(
+                status_str="error",
+                message="Failed to send OTP",
+                errors=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # ----------------------------
 # Reset Password
 # ----------------------------
 class ResetPasswordView(APIView):
-    """
-    Reset password using OTP verification.
-    Throttled using GeneralThrottle.
-    """
     permission_classes = [AllowAny]
     throttle_classes = [GeneralThrottle]
 
