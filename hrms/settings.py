@@ -168,10 +168,8 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "otp": "5/hour",
         "login": "10/hour",
-        "general": "20/hour",
+        "general": "30/hour",
     },
-    "GENERAL_THROTTLE_SAFE_RATE": "100/hour",
-    "GENERAL_THROTTLE_UNSAFE_RATE": "10/hour",
 }
 
 SIMPLE_JWT = {
