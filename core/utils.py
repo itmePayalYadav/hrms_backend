@@ -41,7 +41,6 @@ def send_otp_email(to_email: str, otp: str, validity_minutes: int = 10) -> None:
         logger.error(f"Failed to send OTP to {to_email}: {str(e)}")
         raise serializers.ValidationError({"email": "Failed to send OTP email. Please try again later."})
 
-
 # ----------------------------
 # API Response Utility
 # ----------------------------
