@@ -26,7 +26,7 @@ def send_otp_email(to_email: str, otp: str, validity_minutes: int = 10) -> None:
     """
     subject = "Your HRMS OTP Verification Code"
     message = f"Your OTP code is: {otp}. It is valid for {validity_minutes} minutes."
-    from_email = settings.DEFAULT_FROM_EMAIL
+    from_email = settings.EMAIL_HOST_USER
     send_mail(subject, message, from_email, [to_email], fail_silently=False)
 
 
