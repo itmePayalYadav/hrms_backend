@@ -31,7 +31,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         otp = generate_otp()
         
         try:
-            send_otp_email(validated_data["email"], otp)
+            send_otp_email(validated_data["email"], otp, validity_minutes=10)
         except Exception as e:
             raise serializers.ValidationError(
                 {"email": f"Failed to send OTP: {str(e)}"}
