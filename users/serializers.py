@@ -4,17 +4,17 @@ from django.contrib.auth.hashers import check_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from core.utils import generate_otp, send_otp_email
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 # ----------------------------
 # Register Serializer
 # ----------------------------
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(
-        write_only=True, validators=[validate_password], style={'input_type': 'password'}
-    )
-    password_confirm = serializers.CharField(
-        write_only=True, style={'input_type': 'password'}
-    )
+    password = serializers.CharField(write_only=True, validators=[validate_password], style={'input_type': 'password'})
+    password_confirm = serializers.CharField(write_only=True, style={'input_type': 'password'})
 
     class Meta:
         model = User
@@ -30,20 +30,25 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         password = validated_data.pop("password")
         validated_data.pop("password_confirm")
-        
-        otp = generate_otp()
-        try:
-            send_otp_email(validated_data["email"], otp, validity_minutes=10)
-        except Exception as e:
-            raise serializers.ValidationError(
-                {"email": f"Failed to send OTP: {str(e)}"}
-            )
-            
+
+        # Create user
         user = User.objects.create_user(password=password, **validated_data)
-        user.set_otp(otp)
         user.is_verified = False
-        user.save(update_fields=["otp", "is_verified"])
+        user.save(update_fields=["is_verified"])
+
+        # Send OTP
+        otp = generate_otp()
+        user.set_otp(otp)
+        try:
+            send_otp_email(user.email, otp, validity_minutes=10)
+            logger.info(f"OTP sent to {user.email}")
+        except Exception as e:
+            user.delete()
+            logger.warning(f"Registration rollback: failed to send OTP to {user.email} - {str(e)}")
+            raise serializers.ValidationError({"email": f"Failed to send OTP: {str(e)}"})
+
         return user
+
 
 # ----------------------------
 # Verify OTP Serializer
@@ -65,8 +70,8 @@ class VerifyOTPSerializer(serializers.Serializer):
             user.is_verified = True
             user.save(update_fields=["is_verified"])
 
-        data["user"] = user
-        return data
+        return user
+
 
 # ----------------------------
 # Resend OTP Serializer
@@ -88,12 +93,12 @@ class ResendOTPSerializer(serializers.Serializer):
         otp = generate_otp()
         user.set_otp(otp)
         try:
-            send_otp_email(user.email, otp)
+            send_otp_email(user.email, otp, validity_minutes=10)
+            logger.info(f"Resent OTP to {user.email}")
         except Exception as e:
-            raise serializers.ValidationError(
-                {"email": f"Failed to send OTP: {str(e)}"}
-            )
+            raise serializers.ValidationError({"email": f"Failed to resend OTP: {str(e)}"})
         return user
+
 
 # ----------------------------
 # Change Password Serializer
@@ -120,6 +125,7 @@ class ChangePasswordSerializer(serializers.Serializer):
         user.save()
         return user
 
+
 # ----------------------------
 # JWT Token Serializer (with role)
 # ----------------------------
@@ -128,10 +134,12 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         if not self.user.is_verified:
             raise serializers.ValidationError("Please verify your email before login.")
-        data["email"] = self.user.email
-        data["role"] = self.user.em_role
-        data["user_id"] = str(self.user.id)
-        data["is_verified"] = self.user.is_verified
+        data.update({
+            "email": self.user.email,
+            "role": self.user.em_role,
+            "user_id": str(self.user.id),
+            "is_verified": self.user.is_verified
+        })
         return data
 
     @classmethod
@@ -141,6 +149,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token["email"] = user.email
         token["user_id"] = str(user.id)
         return token
+
 
 # ----------------------------
 # Forgot Password Serializer
@@ -157,15 +166,16 @@ class ForgotPasswordOTPSerializer(serializers.Serializer):
 
     def save(self):
         otp = generate_otp()
-        token = self.user.set_reset_password_token()
-        self.user.set_otp(otp)
+        self.user.set_reset_password_token()
+        self.user.set_otp(otp, reset=True)
         try:
-            send_otp_email(self.user.email, otp)
+            send_otp_email(self.user.email, otp, validity_minutes=10)
+            logger.info(f"Password reset OTP sent to {self.user.email}")
         except Exception as e:
-            raise serializers.ValidationError(
-                {"email": f"Failed to send OTP: {str(e)}"}
-            )
-        return {"user": self.user, "otp": otp, "reset_token": token}
+            self.user.clear_reset_password_token()
+            raise serializers.ValidationError({"email": f"Failed to send OTP: {str(e)}"})
+        return self.user
+
 
 # ----------------------------
 # Reset Password Serializer
@@ -183,10 +193,11 @@ class ResetPasswordOTPSerializer(serializers.Serializer):
         except User.DoesNotExist:
             raise serializers.ValidationError("Invalid email")
 
-        if not self.user.verify_otp(data["otp"]):
+        if not self.user.verify_otp(data["otp"], reset=True):
             raise serializers.ValidationError("Invalid or expired OTP")
 
         if not self.user.verify_reset_password_token(data["token"]):
+            self.user.clear_otp()
             raise serializers.ValidationError("Invalid or expired reset token")
 
         if data["new_password"] != data["new_password_confirm"]:
