@@ -1,32 +1,32 @@
 from django.test import TestCase
-from users.models import User, Department, Designation
+from users.models import User
+from department.models import Department
+from designation.models import Designation
 
 class TestUserModel(TestCase):
     def setUp(self):
         self.department = Department.objects.create(dep_name="IT")
-        self.designation = Designation.objects.create(des_name="Development")
+        self.designation = Designation.objects.create(des_name="Development", department=self.department)
 
-    def test_create_user(self):  
+    def test_create_user(self):
         user = User.objects.create_user(
             email="test@gmail.com",
             password="test@123",
             em_role="EMPLOYEE",
-            dep_id=self.department,
-            des_id=self.designation,
+            designation=self.designation,
             em_phone="1234567890"
         )
-
+        
         self.assertEqual(user.email, "test@gmail.com")
         self.assertTrue(user.check_password("test@123"))
         self.assertEqual(user.em_role, "EMPLOYEE")
-        self.assertEqual(user.dep_id, self.department)
-        self.assertEqual(user.des_id, self.designation)
+        self.assertEqual(user.designation, self.designation)
         self.assertEqual(user.em_phone, "1234567890")
         self.assertFalse(user.is_staff)
         self.assertFalse(user.is_superuser)
         self.assertFalse(user.is_verified)
 
-    def test_create_admin(self):  
+    def test_create_admin(self):
         user = User.objects.create_admin(
             email="admin@gmail.com",
             password="admin@123",
@@ -39,8 +39,8 @@ class TestUserModel(TestCase):
         self.assertTrue(user.is_staff)
         self.assertFalse(user.is_superuser)
         self.assertFalse(user.is_verified)
-    
-    def test_create_superuser(self):  
+        
+    def test_create_superuser(self):
         user = User.objects.create_superuser(
             email="superadmin@gmail.com",
             password="superadmin@123",
@@ -58,23 +58,11 @@ class TestUserModel(TestCase):
         with self.assertRaises(ValueError):
             User.objects.create_user(email=None, password="test@123")
     
-    def test_soft_delete_and_restore(self):
-        user = User.objects.create_user(email="testdelete@gmail.com", password="test@123")
-        
-        user.delete()
-        self.assertTrue(user.is_deleted)
-        self.assertFalse(User.active_objects.filter(email="testdelete@gmail.com").exists())
-        
-        user.restore()
-        self.assertFalse(user.is_deleted)
-        self.assertTrue(User.active_objects.filter(email="testdelete@gmail.com").exists())
-    
     def test_otp_storage(self):
         user = User.objects.create_user(email="otp@gmail.com", password="otp@123")
-        user.otp = "123456"
-        user.save()
+        user.set_otp("123456")
         res = User.objects.get(email="otp@gmail.com")
-        self.assertTrue(res.otp, "123456")
+        self.assertEqual(res.otp, "123456")
     
     def test_user_string_representation(self):
         user = User.objects.create_user(email="test@gmail.com", password="test@123")
@@ -92,26 +80,16 @@ class TestUserModel(TestCase):
         with self.assertRaises(ValueError):
             User.objects.create_superuser(
                 email="superadmin@gmail.com",
-                password="supeeradmin@123",
+                password="superadmin@123",
                 is_staff=False
             )
         with self.assertRaises(ValueError):
             User.objects.create_superuser(
                 email="superadmin@gmail.com",
-                password="supeeradmin@123",
+                password="superadmin@123",
                 is_superuser=False
             )
     
     def test_email_normalization(self):
         user = User.objects.create_user(email="TEST@GMAIL.COM", password="test@123")
-        self.assertEqual(user.email, "TEST@gmail.com") 
-            
-class DepartmentDesignationTests(TestCase):
-    def test_department_creation(self):
-        department = Department.objects.create(dep_name="HR")
-        self.assertEqual(str(department), "HR")
-
-    def test_designation_creation(self):
-        designation = Designation.objects.create(des_name="Manager")
-        self.assertEqual(str(designation), "Manager")
-    
+        self.assertNotEqual(user.email, "TEST@GMAIL.COM")

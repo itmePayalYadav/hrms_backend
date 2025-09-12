@@ -131,7 +131,6 @@ class ChangePasswordView(generics.UpdateAPIView):
         logger.info(f"User {user.email} changed password successfully")
         return api_response(message="Password changed successfully")
 
-
 # ----------------------------
 # Forgot Password
 # ----------------------------
@@ -150,7 +149,6 @@ class ForgotPasswordView(APIView):
             message="OTP sent to email for password reset",
             data=data
         )
-
 
 # ----------------------------
 # Reset Password

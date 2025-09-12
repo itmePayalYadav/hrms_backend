@@ -3,6 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.hashers import check_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.exceptions import AuthenticationFailed
 from core.utils import generate_otp, send_otp_email
 import logging
 
@@ -62,6 +63,9 @@ class VerifyOTPSerializer(serializers.Serializer):
             user = User.objects.get(email=data["email"])
         except User.DoesNotExist:
             raise serializers.ValidationError("User not found")
+        
+        if user.is_verified:
+            raise serializers.ValidationError({"non_field_errors": "User already verified"})
 
         if not user.verify_otp(data["otp"]):
             raise serializers.ValidationError("Invalid or expired OTP")
@@ -131,9 +135,14 @@ class ChangePasswordSerializer(serializers.Serializer):
 # ----------------------------
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        data = super().validate(attrs)
+        try:
+            data = super().validate(attrs)
+        except AuthenticationFailed:
+            raise serializers.ValidationError("Invalid email or password")
+
         if not self.user.is_verified:
             raise serializers.ValidationError("Please verify your email before login.")
+
         data.update({
             "email": self.user.email,
             "role": self.user.em_role,

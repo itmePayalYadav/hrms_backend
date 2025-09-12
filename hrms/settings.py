@@ -25,6 +25,13 @@ ALLOWED_HOSTS = config(
 AUTH_USER_MODEL = "users.User"
 
 # ----------------------------
+# TEST MODEL
+# ----------------------------
+TEST = {
+    'NAME': 'test_neondb',
+}
+
+# ----------------------------
 # AUTHENTICATION BACKENDS
 # ----------------------------
 AUTHENTICATION_BACKENDS = [
@@ -57,6 +64,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     
     # Local apps
+    'core',
     'users',
     'department',
     'designation',
@@ -106,20 +114,23 @@ TEMPLATES = [
 DATABASE_URL = config("DATABASE_URL", default=None)
 CONN_MAX_AGE = config("CONN_MAX_AGE", default=50, cast=int)
 
-if DATABASE_URL:
+if DEBUG:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+else:
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL environment variable is not set!")
+    
     DATABASES = {
         "default": dj_database_url.parse(
             DATABASE_URL,
             conn_max_age=CONN_MAX_AGE,
             conn_health_checks=True
         )
-    }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
     }
 
 # ----------------------------
